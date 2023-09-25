@@ -3,15 +3,37 @@
 import { useForm, SubmitHandler } from "react-hook-form";
 import { type FormInputPost } from "@/types";
 import { FC } from "react";
+import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
+import { Tag } from "@prisma/client";
 
 interface FormPostProps {
   submit: SubmitHandler<FormInputPost>;
   isEditing: boolean;
+  initialValue?: FormInputPost;
+  isLoadingSubmit: boolean;
 }
 
-const FormPost: FC<FormPostProps> = ({ submit, isEditing }) => {
-  const { register, handleSubmit } = useForm<FormInputPost>();
+const FormPost: FC<FormPostProps> = ({
+  submit,
+  isEditing,
+  initialValue,
+  isLoadingSubmit,
+}) => {
+  const { register, handleSubmit } = useForm<FormInputPost>({
+    defaultValues: initialValue,
+  });
 
+  const { data: dataTags, isLoading: isLoadingDataTags } = useQuery<Tag[]>({
+    queryKey: ["tags"],
+    queryFn: async () => {
+      const res = await axios.get("/api/tags");
+      console.log(res.data);
+      return res.data;
+    },
+  });
+
+  console.log(dataTags);
   return (
     <form
       onSubmit={handleSubmit(submit)}
@@ -28,24 +50,34 @@ const FormPost: FC<FormPostProps> = ({ submit, isEditing }) => {
         className="textarea textarea-bordered w-full max-w-lg bg-white"
         placeholder="Post content"
       ></textarea>
-      <select
-        {...register("tag", { required: true })}
-        className="select select-bordered w-full max-w-lg bg-white"
-        defaultValue=""
-      >
-        <option disabled value="">
-          Select tags
-        </option>
-        <option>Javascript</option>
-        <option>Python</option>
-        <option>C++</option>
-        <option>Golang</option>
-        <option>C#</option>
-        <option>Java</option>
-      </select>
+      {isLoadingDataTags ? (
+        <span className="loading loading-bars loading-md"></span>
+      ) : (
+        <select
+          {...register("tagId", { required: true })}
+          className="select select-bordered w-full max-w-lg bg-white"
+          defaultValue=""
+        >
+          <option disabled value="">
+            Select tags
+          </option>
+          {dataTags?.map((tag) => (
+            <option key={tag.id} value={tag.id}>
+              {tag.name}
+            </option>
+          ))}
+        </select>
+      )}
 
       <button className="btn btn-primary w-full max-w-lg" type="submit">
-        {isEditing ? "Update" : "Create"}
+        {isLoadingSubmit && <span className="loading loading-spinner"></span>}
+        {isEditing
+          ? isLoadingSubmit
+            ? "Updating..."
+            : "Update"
+          : isLoadingSubmit
+          ? "Creating..."
+          : "Create"}
       </button>
     </form>
   );
